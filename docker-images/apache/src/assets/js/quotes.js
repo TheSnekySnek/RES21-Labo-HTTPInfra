@@ -1,5 +1,5 @@
 function fetchQuotes(){
-    fetch('/api/quotes/')  
+    fetch('/api/quotes')  
     .then(  
       function(response) {  
         if (response.status !== 200) {  
@@ -20,4 +20,4 @@ function fetchQuotes(){
 
 setInterval(() => {
     fetchQuotes()
-}, 2000);
+}, 3000);
