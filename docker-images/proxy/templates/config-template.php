@@ -9,6 +9,8 @@
     #ErrorLog ${APACHE_LOG_DIR}/error.log
     #CustomLog ${APACHE_LOG_DIR}/access.log combined
 
+    Header add Set-Cookie "ROUTEID=.%{BALANCER_WORKER_ROUTE}e; path=/" env=BALANCER_ROUTE_CHANGED
+
     <Proxy "balancer://dynamic">
     <?php
         foreach ($dynamic as $host) {
@@ -23,14 +25,17 @@
 
     <Proxy "balancer://static">
         <?php
+        $routeId = 1;
         foreach ($static as $host) {
         ?>
-        BalancerMember http://<?php print "$host";?>
+        BalancerMember http://<?php print "$host";?> route=<?php print "$routeId";?>
+
         <?php
+        $routeId++;
         }
         ?>
 
-        ProxySet lbmethod=byrequests
+        ProxySet stickysession=ROUTEID
     </Proxy>
 
     BalancerPersist On
