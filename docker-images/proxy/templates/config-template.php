@@ -14,8 +14,10 @@
     <Proxy "balancer://dynamic">
     <?php
         foreach ($dynamic as $host) {
+            if($host==""){continue;}
         ?>
-        BalancerMember http://<?php print "$host";?>
+        BalancerMember http://<?php print "$host";?>:3000
+
         <?php
         }
         ?>
@@ -25,13 +27,12 @@
 
     <Proxy "balancer://static">
         <?php
-        $routeId = 1;
         foreach ($static as $host) {
+            if($host==""){continue;}
         ?>
-        BalancerMember http://<?php print "$host";?> route=<?php print "$routeId";?>
+        BalancerMember http://<?php print "$host";?> route=<?php print explode(".", $host)[3];?>:80
 
         <?php
-        $routeId++;
         }
         ?>
 

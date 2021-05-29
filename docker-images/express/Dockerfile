@@ -1,5 +1,7 @@
 FROM node:14-alpine
 
 COPY src /opt/app
+COPY serf /usr/local/bin/
+COPY start.sh /
 
-CMD ["node", "/opt/app/index.js"]
+CMD ["./start.sh"]
