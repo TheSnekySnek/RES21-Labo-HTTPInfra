@@ -30,7 +30,7 @@
         foreach ($static as $host) {
             if($host==""){continue;}
         ?>
-        BalancerMember http://<?php print "$host";?> route=<?php print explode(".", $host)[3];?>:80
+        BalancerMember http://<?php print "$host";?>:80 route=<?php print explode(".", $host)[3];?>
 
         <?php
         }

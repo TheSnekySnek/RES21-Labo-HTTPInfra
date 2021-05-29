@@ -1,0 +1,28 @@
+#titleP{
+    font-size: 27px;
+    margin: 0;
+    color: white;
+}
+#rpConnection{
+    color: white;
+
+    margin-bottom: 0;
+
+    margin-right: 40px;
+}
+
+.rpSuccess{
+    color: #2dce89;
+}
+.rpError{
+    color: white;
+}
+.btn-disabled{
+    color: #fff;
+
+    border-color: #8c8c8c;
+    
+    background-color: #717171;
+    
+    box-shadow: 0 4px 6px rgba(50, 50, 93, .11), 0 1px 3px rgba(0, 0, 0, .08);
+}
