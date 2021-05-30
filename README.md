@@ -460,6 +460,8 @@ docker run -e STATIC_APP=172.17.0.2 -e DYNAMIC_APP=172.17.0.3 -p 8080:80 res/apa
 sudo docker exec -it e8c02728e3e2 /bash/bin
 cat /etc/apache2/sites-available/001-*
 ```
+We can also check the balancer by going to the balancer endpoint on the server.
+IMG
 
 ## Step 7: Load balancing, round-robin vs sticky sessions
 Since the previous step was already using round-robin, we just need to add the sticky sessions for the static load balancer.
@@ -486,3 +488,131 @@ We also add a route for each member of our balancer.
 </Proxy>
 ```
 With this setup, each client making a new request to the static endpoint will receive a cookie containing a routeID that corresponds to the server that picked up the request. That way every new request will be directed towards that server so that it can keep a session for the user, since other servers won't have the data for that session.
+
+## Step 8: Dynamic cluster management
+### Clustering using Serf
+To be able to add members to each cluster dynamically I decided to use Serf. That way each member can assign itself a role, dynamic or static, and join the cluster hosted by the reverse proxy.
+
+We need to copy the serf binary to each container. We also need to copy the apache2-foreground from the reverse proxy and use it to run serf and not the template, we also need to make a custom script for the dynamic node to start serf and then start node.
+
+the script running Serf on the dynamic and static servers does the following
+ - Start the Serf agent in the background
+ - Set the Serf role tag as static or dynamic
+ - Join the serf master using the ip provided as an environment variable
+
+```
+serf agent &
+sleep 2
+
+# Set serf role as dynamic
+echo "Setting role as static"
+serf tags -set role=static
+
+# Use serf to join the cluster with the dynamic tag
+echo "Joining cluster"
+serf join $RP_IP
+```
+
+On the reverse proxy side, we listen for member join, update, or leave events and load the members in the cluster, we then start a script that check for static members by looking at the nodes with a static role and add them to to the static members of the balancer. We do the same for the dynamic nodes and finish by reloading the apache config so that there is no downtime.
+
+```
+#!/bin/sh 
+ 
+# Update the new env variables with the members
+export DYNAMIC_APP=$(serf members -tag role=dynamic -status alive | awk '{print $2}' | cut -d: -f1 | paste -sd "," -)
+export STATIC_APP=$(serf members -tag role=static -status alive | awk '{print $2}' | cut -d: -f1 | paste -sd "," -)
+
+#Update the template
+php /var/apache2/templates/config-template.php > '/etc/apache2/sites-available/001-reverse-proxy.conf'
+
+# Reload the config
+/etc/init.d/apache2 reload
+```
+ 
+### Preventing the routes from changing
+Because We assign each route by their indx in the list, we might have a time when the first node stops so all the rest get their indexes reduced by one making the whole system lose the client's session.
+ 
+To remedy this, We use the ip address of the node as the route id. This way even if a node stops the others will keep the same id. With this approach we are limited to 254 routes but could use more if we took the other part of the ip as an index too.
+```
+<Proxy "balancer://static">
+    <?php
+    foreach ($static as $host) {
+        if($host==""){continue;}
+    ?>
+    BalancerMember http://<?php print "$host";?> route=<?php print explode(".", $host)[3];?>:80
+
+    <?php
+    }
+    ?>
+
+    ProxySet stickysession=ROUTEID
+</Proxy>
+```
+
+### Verification
+We need to rebuild al lthe containers first.
+```
+docker build -t res/apache_php
+docker build -t res/express_quotes
+docker build -t res/apache_rp
+docker run -e STATIC_APP=172.17.0.2 -e DYNAMIC_APP=172.17.0.3 -p 8080:80 res/apache_rp
+```
+
+We then need to start the revers proxy
+```
+docker run -p 8080:80 res/apache_rp
+```
+
+And now we can start multiple servers of both type
+```
+docker run -d -e RP_IP=172.17.0.2 res/apache_php
+docker run -d -e RP_IP=172.17.0.2 res/apache_php
+
+docker run -d -e RP_IP=172.17.0.2 res/express_quotes
+docker run -d -e RP_IP=172.17.0.2 res/express_quotes
+```
+
+We should start to see join events on the reverse proxy. If we look at the balancer endpoint, we can see the nodes getting added to their respective balancer.
+IMG
+We can then go to the root website and check that everything works correctly.
+
+## Step : Management UI
+IMG
+For this part, I decided to build my own management UI since I like using express and websockets and thought this would be a very good fit.
+
+
+###Technologies used
+I decided to use NodeJS for the backend as it's easy to code and provides a lot of useful modules. The modules I decided to use were the following:
+ - Dockerode: To control Docker via the Docker Socket, enabling me to start and stop containers
+ - Express:   To Serve the dashboard
+ - WS:        This is a Websocket server library that will let me send and receive messages without fetching querying the backend each time.
+
+To access the Docker Socket from inside a running container we need to mount a volume on it linking the host Docker Socket to the container when we run it.
+```
+docker run -p 3000:3000 -v /var/run/docker.sock:/var/run/docker.sock res/express_management
+```
+
+### Dashboard
+The dashboard let's the user know if the reverse proxy is online and it's ip. The user can also start and stop the reverse proxy via this interface.
+
+The user can also add and stop static or dynamic nodes from the two tables present in the middle of the page. This makes it a single click to spin or stop a node and get it added to the cluster automaticaly which isn't the case for a prebuilt docker managment UI.
+
+The UI is very dynamic and provides information like uptime noe ip addresses and names.
+
+### Verification
+We can check that everything works by running the start UI script
+```
+sudo ./startUI.sh
+```
+
+We can then go to http://localhost:3000 to see the UI.
+IMG
+We start by launching the reverse proxy by clicking the play button on the top bar.
+IMG
+We ca nsee that the UI updates instantly with the new information.
+We can then start by adding at least a static and a dynamic node. By going to the website http://demo.res.ch:8080.
+IMG
+We can see that it works correctly. We can also go to the balancer endpoint and see that our nodes have been correctly added to the balancer.
+IMG
+If we try starting new nodes from the management UI we can see them apear in the balancer page after a couple of seconds.
+IMG
