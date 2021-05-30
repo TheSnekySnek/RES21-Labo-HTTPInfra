@@ -588,19 +588,19 @@ For this part, I decided to build my own management UI since I like using expres
 
 ###Technologies used
 I decided to use NodeJS for the backend as it's easy to code and provides a lot of useful modules. The modules I decided to use were the following:
- - Dockerode: To control Docker via the Docker Socket, enabling me to start and stop containers
- - Express:   To Serve the dashboard
- - WS:        This is a Websocket server library that will let me send and receive messages without fetching querying the backend each time.
+ - `Dockerode`: To control Docker via the Docker Socket, enabling me to start and stop containers
+ - `Express`:   To Serve the dashboard
+ - `WS`:        This is a Websocket server library that will let me send and receive messages without fetching querying the backend each time.
 
-To access the Docker Socket from inside a running container we need to mount a volume on it linking the host Docker Socket to the container when we run it.
+To access the `Docker Socket` from inside a running container we need to mount a volume on it linking the host `Docker Socket` to the container when we run it.
 ```
 docker run -p 3000:3000 -v /var/run/docker.sock:/var/run/docker.sock res/express_management
 ```
 
 ### Dashboard
-The dashboard let's the user know if the reverse proxy is online and it's ip. The user can also start and stop the reverse proxy via this interface.
+The dashboard let's the user know if the `reverse proxy` is online and it's ip. The user can also start and stop the `reverse proxy` via this interface.
 
-The user can also add and stop static or dynamic nodes from the two tables present in the middle of the page. This makes it a single click to spin or stop a node and get it added to the cluster automaticaly which isn't the case for a prebuilt docker managment UI.
+The user can also `add` and `stop` static or dynamic nodes from the two tables present in the middle of the page. This makes it a single click to spin or stop a node and get it added to the cluster automaticaly which isn't the case for a prebuilt docker managment UI.
 
 The UI is very dynamic and provides information like uptime, ip address and name.
 
@@ -620,7 +620,7 @@ We start by launching the reverse proxy by clicking the play button on the top b
 
 We can see that the UI updates instantly with the new information.
 
-We can then start by adding at least a static and a dynamic node. By going to the website http://demo.res.ch:8080.
+We can then start by adding at least a static and a dynamic node by clicking the block icon on the respective tables. By going to the website http://demo.res.ch:8080.
 
 ![](figures/manager_2.png)
 ![](figures/site.png)
