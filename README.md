@@ -530,9 +530,9 @@ php /var/apache2/templates/config-template.php > '/etc/apache2/sites-available/0
 ```
  
 ### Preventing the routes from changing
-Because We assign each route by their indx in the list, we might have a time when the first node stops so all the rest get their indexes reduced by one making the whole system lose the client's session.
+Because we assign each route by their indx in the list, we might have a time when the first node stops so all the rest get their indexes reduced by one making the whole system lose the client's session.
  
-To remedy this, We use the ip address of the node as the route id. This way even if a node stops the others will keep the same id. With this approach we are limited to 254 routes but could use more if we took the other part of the ip as an index too.
+To remedy this, we use the ip address of the node as the route id. This way even if a node stops the others will keep the same id. With this approach we are limited to 254 routes but could use more if we took the other part of the ip as an index too.
 ```
 <Proxy "balancer://static">
     <?php
@@ -598,7 +598,7 @@ The dashboard let's the user know if the reverse proxy is online and it's ip. Th
 
 The user can also add and stop static or dynamic nodes from the two tables present in the middle of the page. This makes it a single click to spin or stop a node and get it added to the cluster automaticaly which isn't the case for a prebuilt docker managment UI.
 
-The UI is very dynamic and provides information like uptime noe ip addresses and names.
+The UI is very dynamic and provides information like uptime, ip address and name.
 
 ### Verification
 We can check that everything works by running the start UI script
