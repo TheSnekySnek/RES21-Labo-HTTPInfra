@@ -316,4 +316,32 @@ docker run res/apache_php
 We can then got to `demo.res.ch:8080/` and see that the title and subtitle get updated every 4 seconds with a new quote.
 
 ## Step 5: Dynamic reverse proxy configuration
+To fix the problem with the static configuration file we need to be able to pass the ip address of both the static and dynamic server to the reverse proxy container when starting it.
+
+To do this I decided to use the `-e` flag to set the ip addresses as environment variables inside the container.
+
+### Template
+To insert the ip addresses dynamicaly inside the configuration file, we need to create a php template that will take our environment variables and output the config file with them embeded.
+```
+<?php
+    $dynamic = getenv('DYNAMIC_APP');
+    $static = getenv('STATIC_APP');
+?>
+<VirtualHost *:80>
+
+    ServerName demo.res.ch
+
+    #ErrorLog ${APACHE_LOG_DIR}/error.log
+    #CustomLog ${APACHE_LOG_DIR}/access.log combined
+
+    ProxyPass "/api/quotes/" "http://<?php print "$dynamic";?>/"
+    ProxyPassReverse "/api/quotes/" "http://<?php print "$dynamic";?>/"
+
+    ProxyPass "/" "http://<?php print "$static";?>/"
+    ProxyPassReverse "/" "http://<?php print "$static";?>/"
+
+</VirtualHost>
+```
+
+### Dockerfile
 
