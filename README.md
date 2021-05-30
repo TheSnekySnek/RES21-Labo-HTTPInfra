@@ -345,3 +345,144 @@ To insert the ip addresses dynamicaly inside the configuration file, we need to 
 
 ### Dockerfile
 
+To be able to use the template we first need to run it using php and save the outup to the sites-available folder.
+To do this we need to replace the `apache2-foreground` script that is called by the original php image.
+I added the following to call php on the template before starting apache in the foreground.
+```
+php /var/apache2/templates/config-template.php > '/etc/apache2/sites-available/001-reverse-proxy.conf'
+```
+
+### Dockerfile
+We also need to copy the `apache2-foreground` script as well as the new template to our container.
+This is the state of the Dockerfile now.
+
+```
+FROM php:7.4-apache
+
+COPY apache2-foreground /usr/local/bin/
+COPY templates /var/apache2/templates
+COPY conf/ /etc/apache2
+
+RUN a2enmod proxy proxy_http
+RUN a2ensite 000-* 001-*
+```
+
+### Verification
+We can verify the setup by starting the static and dynamic containers, preferably in a different order so they get another ip on each.
+We then rebuild the image and start the container with the ip of each server on the `-e` tag.
+
+```
+docker build -t res/apache_php 
+docker run -e STATIC_APP=172.17.0.2 -e DYNAMIC_APP=172.17.0.3 -p 8080:80 res/apache_rp
+```
+
+We can check that new configuration worked by visiting the website and we can also use docker exec to interact with the container via a shell and check the content of the config file.
+
+```
+sudo docker exec -it e8c02728e3e2 /bash/bin
+cat /etc/apache2/sites-available/001-*
+```
+
+## Step 6: Load balancing with multiple server nodes
+For this part we need to enable the load balancer in apache. To do this, we need to modify our template file to declare 2 balancer, one for the static server and another for the dynamic server. We then need to add BalancerMember for each server of this type.
+We also set the distribution method as round-robin which corresponds ProxySet `lbmethod=byrequests`.
+```
+<Proxy "balancer://dynamic">
+    <?php
+        foreach ($dynamic as $host) {
+        ?>
+        BalancerMember http://<?php print "$host";?>
+        <?php
+        }
+        ?>
+
+        ProxySet lbmethod=byrequests
+    </Proxy>
+
+    <Proxy "balancer://static">
+        <?php
+        foreach ($static as $host) {
+        ?>
+        BalancerMember http://<?php print "$host";?>
+        <?php
+        }
+        ?>
+
+        ProxySet lbmethod=byrequests
+    </Proxy>
+
+    BalancerPersist On
+```
+We also need to change the ProxyPass and ProxyPassReverse to point to our 2 new balancers
+```
+ProxyPass "/api/quotes" "balancer://dynamic/"
+ProxyPassReverse "/api/quotes" "balancer://dynamic/"
+
+ProxyPass "/" "balancer://static/"
+ProxyPassReverse "/" "balancer://static/"
+```
+
+We can also enable the balancer manager as well as the status.
+```
+<Location "/balancer">
+    SetHandler balancer-manager
+</Location>
+
+<Location "/status">
+    SetHandler server-status
+</Location>
+
+ProxyPass        /balancer    !
+ProxyPass        /status      !
+```
+
+I also decided to be able to provide multiple ip for each server type by using coma separated values. The php code to extract them is as follows.
+```
+<?php
+    $dynamic = explode(",", getenv('DYNAMIC_APP'));
+    $static = explode(",", getenv('STATIC_APP'));
+?>
+```
+### Dockerfile
+We need to enable the load balancer as well as other modules to make the load balancer work properly. We so this by modifying the `RUN a2enmod` like follows.
+```
+RUN a2enmod proxy proxy_balancer proxy_http proxy_connect lbmethod_byrequests lbmethod_bytraffic lbmethod_bybusyness lbmethod_heartbeat headers
+```
+
+### Verification
+To verfiy the config we do this exact same steps as previously.
+```
+docker build -t res/apache_php 
+docker run -e STATIC_APP=172.17.0.2 -e DYNAMIC_APP=172.17.0.3 -p 8080:80 res/apache_rp
+```
+
+```
+sudo docker exec -it e8c02728e3e2 /bash/bin
+cat /etc/apache2/sites-available/001-*
+```
+
+## Step 7: Load balancing, round-robin vs sticky sessions
+Since the previous step was already using round-robin, we just need to add the sticky sessions for the static load balancer.
+To do this we need to add the route id as a cookie for the clients with the folowing line in the template.
+```
+Header add Set-Cookie "ROUTEID=.%{BALANCER_WORKER_ROUTE}e; path=/" env=BALANCER_ROUTE_CHANGED
+```
+
+We also add a route for each member of our balancer.
+```
+<Proxy "balancer://static">
+    <?php
+    $routeId = 1;
+    foreach ($static as $host) {
+    ?>
+    BalancerMember http://<?php print "$host";?> route=<?php print "$routeId";?>
+
+    <?php
+    $routeId++;
+    }
+    ?>
+
+    ProxySet stickysession=ROUTEID
+</Proxy>
+```
+With this setup, each client making a new request to the static endpoint will receive a cookie containing a routeID that corresponds to the server that picked up the request. That way every new request will be directed towards that server so that it can keep a session for the user, since other servers won't have the data for that session.
