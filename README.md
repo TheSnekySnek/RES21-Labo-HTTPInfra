@@ -576,8 +576,9 @@ We should start to see join events on the reverse proxy. If we look at the balan
 IMG
 We can then go to the root website and check that everything works correctly.
 
-## Step : Management UI
+## Step 9: Management UI
 IMG
+
 For this part, I decided to build my own management UI since I like using express and websockets and thought this would be a very good fit.
 
 
@@ -606,13 +607,23 @@ sudo ./startUI.sh
 ```
 
 We can then go to http://localhost:3000 to see the UI.
+
 IMG
+
 We start by launching the reverse proxy by clicking the play button on the top bar.
+
 IMG
+
 We ca nsee that the UI updates instantly with the new information.
+
 We can then start by adding at least a static and a dynamic node. By going to the website http://demo.res.ch:8080.
+
 IMG
+
 We can see that it works correctly. We can also go to the balancer endpoint and see that our nodes have been correctly added to the balancer.
+
 IMG
+
 If we try starting new nodes from the management UI we can see them apear in the balancer page after a couple of seconds.
+
 IMG
