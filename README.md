@@ -343,9 +343,9 @@ To insert the ip addresses dynamicaly inside the configuration file, we need to 
 </VirtualHost>
 ```
 
-### Dockerfile
+### Running the Template
 
-To be able to use the template we first need to run it using php and save the outup to the sites-available folder.
+To be able to use the template we first need to run it using php and save the output to the sites-available folder.
 To do this we need to replace the `apache2-foreground` script that is called by the original php image.
 I added the following to call php on the template before starting apache in the foreground.
 ```
